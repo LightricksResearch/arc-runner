@@ -25,7 +25,7 @@ RUN export RUNNER_ARCH=x64 \
     && rm -rf docker.tgz \
     && mkdir -p /usr/local/lib/docker/cli-plugins \
     && curl -fLo /usr/local/lib/docker/cli-plugins/docker-buildx \
-        "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${TARGETARCH}" \
+        "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-amd64" \
     && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 
 FROM mcr.microsoft.com/dotnet/runtime-deps:6.0-jammy
