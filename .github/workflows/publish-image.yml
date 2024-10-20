@@ -66,7 +66,6 @@ jobs:
           context: ./images
           platforms: |
             linux/amd64
-            linux/arm64
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image.outputs.version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
