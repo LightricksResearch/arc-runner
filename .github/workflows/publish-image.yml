@@ -8,8 +8,8 @@ on:
         description: Version of the runner being installed
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/actions-runner
+  REGISTRY: gcr.io/ltx-research
+  IMAGE_NAME: arc-runner
 
 jobs:
   build:
@@ -43,12 +43,20 @@ jobs:
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v2
 
-      - name: Log into registry ${{ env.REGISTRY }}
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          token_format: 'access_token'
+          workload_identity_provider: 'projects/474377433429/locations/global/workloadIdentityPools/gh-pool/providers/gh-provider'
+          service_account: 'github-actions@ltx-research.iam.gserviceaccount.com'
+    
+      - name: Login to GCR
         uses: docker/login-action@v2
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: gcr.io
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
 
       - name: Build and push Docker image
         id: build-and-push
