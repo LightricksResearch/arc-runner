@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     g++ \
     gcc \
     git \
+    nvidia-container-toolkit \
     libc-dev \
     libpq-dev \
     libgl1 \
