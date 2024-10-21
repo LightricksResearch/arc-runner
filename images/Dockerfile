@@ -26,6 +26,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends software-proper
     python3.10-distutils \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends sudo lsb-release gpg-agent software-properties-common curl jq unzip \
+    && rm -rf /var/lib/apt/lists/*
+
 # Remove unnecessary Python packages
 RUN apt-get remove -y python3-blinker python3-cffi-backend
 
