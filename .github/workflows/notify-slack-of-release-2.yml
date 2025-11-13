@@ -1,0 +1,178 @@
+name: Check Actions Runner Release
+
+on:
+  schedule:
+    - cron: '0 9 1 */2 *'  # Every 2 months on the 1st at 9 AM UTC
+  workflow_dispatch:
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for new release
+        id: check
+        run: |
+          #!/bin/bash
+          set -euo pipefail
+          
+          echo "🔍 Checking for new actions/runner release..."
+          
+          # Get latest release
+          LATEST=$(curl -s https://api.github.com/repos/actions/runner/releases/latest)
+          
+          TAG=$(echo "$LATEST" | jq -r '.tag_name')
+          URL=$(echo "$LATEST" | jq -r '.html_url')
+          PUBLISHED=$(echo "$LATEST" | jq -r '.published_at')
+          
+          echo "Latest version: $TAG"
+          echo "Published: $PUBLISHED"
+          
+          # Check if new (last 3 months = 90 days)
+          PUBLISHED_TS=$(date -d "$PUBLISHED" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$PUBLISHED" +%s)
+          CURRENT_TS=$(date +%s)
+          AGE_SECONDS=$((CURRENT_TS - PUBLISHED_TS))
+          THREE_MONTHS_SECONDS=$((90 * 24 * 60 * 60))  # 90 days in seconds
+          
+          AGE_DAYS=$((AGE_SECONDS / 86400))
+          
+          echo "Release age: $AGE_DAYS days"
+          
+          if [ $AGE_SECONDS -lt $THREE_MONTHS_SECONDS ]; then
+            echo "✅ Release is less than 3 months old (${AGE_DAYS} days)"
+            IS_NEW="true"
+          else
+            echo "ℹ️  Release is older than 3 months (${AGE_DAYS} days)"
+            IS_NEW="false"
+          fi
+          
+          # Get Dockerfile values
+          echo "📄 Fetching Dockerfile versions..."
+          DOCKERFILE=$(curl -s https://raw.githubusercontent.com/actions/runner/main/images/Dockerfile)
+          
+          HOOKS_VERSION=$(echo "$DOCKERFILE" | grep 'ARG RUNNER_CONTAINER_HOOKS_VERSION' | cut -d'=' -f2)
+          DOCKER_VERSION=$(echo "$DOCKERFILE" | grep 'ARG DOCKER_VERSION' | cut -d'=' -f2)
+          BUILDX_VERSION=$(echo "$DOCKERFILE" | grep 'ARG BUILDX_VERSION' | cut -d'=' -f2)
+          
+          echo "RUNNER_CONTAINER_HOOKS_VERSION: $HOOKS_VERSION"
+          echo "DOCKER_VERSION: $DOCKER_VERSION"
+          echo "BUILDX_VERSION: $BUILDX_VERSION"
+          
+          # Set outputs
+          {
+            echo "is_new=$IS_NEW"
+            echo "version=$TAG"
+            echo "url=$URL"
+            echo "age_days=$AGE_DAYS"
+            echo "published=$PUBLISHED"
+            echo "hooks_version=$HOOKS_VERSION"
+            echo "docker_version=$DOCKER_VERSION"
+            echo "buildx_version=$BUILDX_VERSION"
+          } >> $GITHUB_OUTPUT
+      
+      # - name: Send Slack notification
+      #   if: steps.check.outputs.is_new == 'true'
+      #   run: |
+      #     cat << EOF > message.json
+      #     {
+      #       "text": "🚀 New GitHub Actions Runner Release: ${{ steps.check.outputs.version }} (${{ steps.check.outputs.age_days }} days old)",
+      #       "blocks": [
+      #         {
+      #           "type": "header",
+      #           "text": {
+      #             "type": "plain_text",
+      #             "text": "🚀 New Actions Runner Release: ${{ steps.check.outputs.version }}"
+      #           }
+      #         },
+      #         {
+      #           "type": "section",
+      #           "text": {
+      #             "type": "mrkdwn",
+      #             "text": "A new version of GitHub Actions Runner has been released!"
+      #           }
+      #         },
+      #         {
+      #           "type": "section",
+      #           "fields": [
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*Version:*\n${{ steps.check.outputs.version }}"
+      #             },
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*Published:*\n${{ steps.check.outputs.age_days }} days ago"
+      #             },
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*Release Date:*\n${{ steps.check.outputs.published }}"
+      #             },
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*Release Notes:*\n<${{ steps.check.outputs.url }}|View on GitHub>"
+      #             }
+      #           ]
+      #         },
+      #         {
+      #           "type": "divider"
+      #         },
+      #         {
+      #           "type": "section",
+      #           "text": {
+      #             "type": "mrkdwn",
+      #             "text": "*📋 Action Required:*\nPlease review the release notes and check the following Dockerfile values:"
+      #           }
+      #         },
+      #         {
+      #           "type": "section",
+      #           "fields": [
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*RUNNER_CONTAINER_HOOKS_VERSION:*\n\`${{ steps.check.outputs.hooks_version }}\`"
+      #             },
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*DOCKER_VERSION:*\n\`${{ steps.check.outputs.docker_version }}\`"
+      #             },
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*BUILDX_VERSION:*\n\`${{ steps.check.outputs.buildx_version }}\`"
+      #             }
+      #           ]
+      #         },
+      #         {
+      #           "type": "actions",
+      #           "elements": [
+      #             {
+      #               "type": "button",
+      #               "text": {
+      #                 "type": "plain_text",
+      #                 "text": "📋 Release Notes"
+      #               },
+      #               "url": "${{ steps.check.outputs.url }}",
+      #               "style": "primary"
+      #             },
+      #             {
+      #               "type": "button",
+      #               "text": {
+      #                 "type": "plain_text",
+      #                 "text": "📄 View Dockerfile"
+      #               },
+      #               "url": "https://github.com/actions/runner/blob/main/images/Dockerfile"
+      #             }
+      #           ]
+      #         }
+      #       ]
+      #     }
+      #     EOF
+          
+      #     curl -X POST \
+      #       -H 'Content-Type: application/json' \
+      #       -d @message.json \
+      #       "${{ secrets.SLACK_WEBHOOK_URL }}"
+          
+      #     echo "✅ Slack notification sent!"
+      
+      - name: Log old release
+        if: steps.check.outputs.is_new == 'false'
+        run: |
+          echo "ℹ️  Latest release ${{ steps.check.outputs.version }} is ${{ steps.check.outputs.age_days }} days old (> 90 days)"
+          echo "No notification sent."
