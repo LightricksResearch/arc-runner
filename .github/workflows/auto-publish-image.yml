@@ -1,4 +1,4 @@
-name: Publish Runner Image CD
+name: Publish New Runner Image
 
 on:
   push:
