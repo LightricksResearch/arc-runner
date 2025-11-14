@@ -6,7 +6,7 @@ on:
   # workflow_dispatch:
   push:
     branches:
-      - '**'
+      - '**' # Trigger on any branch push (for testing purposes)
 env:
   DOCKERFILE_PATH: 'images/Dockerfile'
 
@@ -130,7 +130,6 @@ jobs:
           fi
       
       - name: Create Pull Request
-        #if: steps.check-release.outputs.is_new == 'true'
         if: steps.check-release.outputs.is_new == 'true' && steps.update-dockerfile.outputs.changed == 'true'
         id: create-pr
         uses: peter-evans/create-pull-request@v6
@@ -177,8 +176,6 @@ jobs:
           labels: |
             dockerfile
             automated-pr
-          # team-reviewers: |
-          #   ML DevOps Team
       
       # - name: Send Slack notification
       #   if: steps.create-pr.outputs.pull-request-number != ''
