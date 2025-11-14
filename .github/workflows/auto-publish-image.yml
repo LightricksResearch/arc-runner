@@ -3,10 +3,10 @@ name: Publish Runner Image CD
 on:
   push:
     branches:
-      # - 'main' # Only runs for pushes to the main branch
-        - '**' 
+      # - 'main' 
+        - '**' # Trigger on all branches for testing
     # paths:
-    #   - 'images/Dockerfile'
+    #   - 'images/Dockerfile' # Uncomment after testing
 
 env:
   REGISTRY: gcr.io/ltx-research
@@ -79,7 +79,7 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image-version.outputs.runner_version }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          push: false #true
+          push: false #true # Set to false for testing
           labels: |
             org.opencontainers.image.source=${{github.server_url}}/${{github.repository}}
             org.opencontainers.image.description=https://github.com/actions/runner/releases/tag/v${{ steps.image-version.outputs.runner_version }}

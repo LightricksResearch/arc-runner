@@ -130,20 +130,21 @@ jobs:
           fi
       
       - name: Create Pull Request
-        if: steps.check-release.outputs.is_new == 'true'
-        #if: steps.check-release.outputs.is_new == 'true' && steps.update-dockerfile.outputs.changed == 'true'
+        #if: steps.check-release.outputs.is_new == 'true'
+        if: steps.check-release.outputs.is_new == 'true' && steps.update-dockerfile.outputs.changed == 'true'
         id: create-pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: |
-            Update Dockerfile arguments
+            Updated Dockerfile arguments for runner release @ ${{ steps.check-release.outputs.runner_version }}
 
             - RUNNER_VERSION: ${{ steps.update-dockerfile.outputs.runner_version_old }} → ${{ steps.check-release.outputs.runner_version  }}
             - RUNNER_CONTAINER_HOOKS_VERSION: ${{ steps.update-dockerfile.outputs.hooks_old }} → ${{ steps.check-release.outputs.hooks_version }}
             - DOCKER_VERSION: ${{ steps.update-dockerfile.outputs.docker_old }} → ${{ steps.check-release.outputs.docker_version }}
             - BUILDX_VERSION: ${{ steps.update-dockerfile.outputs.buildx_old }} → ${{ steps.check-release.outputs.buildx_version }}
           branch: update-dockerfile-args-${{ github.run_number }}
+          base: main
           delete-branch: true
           title: '🔄 Update Dockerfile Arguments'
           body: |
