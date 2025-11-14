@@ -114,7 +114,7 @@ jobs:
           echo "✅ Dockerfile updated!"
       
           # Set outputs
-          echo "old_runner_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "runner_version_old=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "hooks_old=$CURRENT_HOOKS" >> $GITHUB_OUTPUT
           echo "docker_old=$CURRENT_DOCKER" >> $GITHUB_OUTPUT
           echo "buildx_old=$CURRENT_BUILDX" >> $GITHUB_OUTPUT
@@ -139,10 +139,10 @@ jobs:
           commit-message: |
             Update Dockerfile arguments
 
-            - RUNNER_CONTAINER_HOOKS_VERSION: ${{ steps.update-dockerfile.outputs.hooks_old }} → ${{ steps.update-dockerfile.outputs.hooks_new }}
-            - RUNNER_CONTAINER_HOOKS_VERSION: ${{ steps.update-dockerfile.outputs.hooks_old }} → ${{ steps.update-dockerfile.outputs.hooks_new }}
-            - DOCKER_VERSION: ${{ steps.update-dockerfile.outputs.docker_old }} → ${{ steps.update-dockerfile.outputs.docker_new }}
-            - BUILDX_VERSION: ${{ steps.update-dockerfile.outputs.buildx_old }} → ${{ steps.update-dockerfile.outputs.buildx_new }}
+            - RUNNER_VERSION: ${{ steps.update-dockerfile.outputs.runner_version_old }} → ${{ steps.check-release.outputs.runner_version  }}
+            - RUNNER_CONTAINER_HOOKS_VERSION: ${{ steps.update-dockerfile.outputs.hooks_old }} → ${{ steps.check-release.outputs.hooks_version }}
+            - DOCKER_VERSION: ${{ steps.update-dockerfile.outputs.docker_old }} → ${{ steps.check-release.outputs.docker_version }}
+            - BUILDX_VERSION: ${{ steps.update-dockerfile.outputs.buildx_old }} → ${{ steps.check-release.outputs.buildx_version }}
           branch: update-dockerfile-args-${{ github.run_number }}
           delete-branch: true
           title: '🔄 Update Dockerfile Arguments'
@@ -153,9 +153,10 @@ jobs:
             
             | Argument | Old Value | New Value | Changed |
             |----------|-----------|-----------|---------|
-            | `RUNNER_CONTAINER_HOOKS_VERSION` | `${{ steps.update-dockerfile.outputs.hooks_old }}` | `${{ steps.update-dockerfile.outputs.hooks_new }}` | ${{ steps.update-dockerfile.outputs.hooks_old != steps.update-dockerfile.outputs.hooks_new && '✅ Yes' || '➖ No' }} |
-            | `DOCKER_VERSION` | `${{ steps.update-dockerfile.outputs.docker_old }}` | `${{ steps.update-dockerfile.outputs.docker_new }}` | ${{ steps.update-dockerfile.outputs.docker_old != steps.update-dockerfile.outputs.docker_new && '✅ Yes' || '➖ No' }} |
-            | `BUILDX_VERSION` | `${{ steps.update-dockerfile.outputs.buildx_old }}` | `${{ steps.update-dockerfile.outputs.buildx_new }}` | ${{ steps.update-dockerfile.outputs.buildx_old != steps.update-dockerfile.outputs.buildx_new && '✅ Yes' || '➖ No' }} |
+            | `RUNNER_VERSION` | `${{ steps.update-dockerfile.outputs.runner_version_old }}` | `${{ steps.check-release.outputs.runner_version }}` | ${{ steps.update-dockerfile.outputs.runner_version_old != steps.check-release.outputs.hooks_version && '✅ Yes' || '➖ No' }} |
+            | `RUNNER_CONTAINER_HOOKS_VERSION` | `${{ steps.update-dockerfile.outputs.hooks_old }}` | `${{ steps.check-release.outputs.hooks_version }}` | ${{ steps.update-dockerfile.outputs.hooks_old != steps.check-release.outputs.runner_version && '✅ Yes' || '➖ No' }} |
+            | `DOCKER_VERSION` | `${{ steps.update-dockerfile.outputs.docker_old }}` | `${{ steps.check-release.outputs.docker_version }}` | ${{ steps.update-dockerfile.outputs.docker_old != steps.check-release.outputs.docker_version && '✅ Yes' || '➖ No' }} |
+            | `BUILDX_VERSION` | `${{ steps.update-dockerfile.outputs.buildx_old }}` | `${{ steps.check-release.outputs.buildx_version }}` | ${{ steps.update-dockerfile.outputs.buildx_old != steps.check-release.outputs.buildx_version && '✅ Yes' || '➖ No' }} |
             
             ## 📋 Review Checklist
             

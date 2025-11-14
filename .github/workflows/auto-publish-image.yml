@@ -16,6 +16,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      id-token: write
+    
     steps:
       - uses: actions/checkout@v5
         with:
