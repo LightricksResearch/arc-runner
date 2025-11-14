@@ -1,0 +1,330 @@
+name: Check Actions Runner Release
+
+on:
+  # schedule:
+  #   - cron: '0 9 1 */2 *'  # Every 2 months on the 1st at 9 AM UTC
+  # workflow_dispatch:
+  push:
+    branches:
+      - '**'
+env:
+  DOCKERFILE_PATH: 'images/Dockerfile'
+
+jobs:
+  check-runner-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for new runner release
+        id: check-release
+        run: |
+          #!/bin/bash
+          set -euo pipefail
+          
+          echo "🔍 Checking for new actions/runner release..."
+          
+          # Get latest release
+          LATEST=$(curl -s https://api.github.com/repos/actions/runner/releases/latest)
+          
+          TAG=$(echo "$LATEST" | jq -r '.tag_name')
+          URL=$(echo "$LATEST" | jq -r '.html_url')
+          PUBLISHED=$(echo "$LATEST" | jq -r '.published_at')
+          
+          echo "RUNNER_VERSION: $TAG"
+          echo "Published on: $PUBLISHED"
+          
+          # Check if new (last 3 months = 90 days)
+          PUBLISHED_TS=$(date -d "$PUBLISHED" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$PUBLISHED" +%s)
+          CURRENT_TS=$(date +%s)
+          AGE_SECONDS=$((CURRENT_TS - PUBLISHED_TS))
+          THREE_MONTHS_SECONDS=$((90 * 24 * 60 * 60))  # 90 days in seconds
+          
+          AGE_DAYS=$((AGE_SECONDS / 86400))
+          
+          echo "Release age: $AGE_DAYS days"
+          
+          if [ $AGE_SECONDS -lt $THREE_MONTHS_SECONDS ]; then
+            echo "✅ Release is less than 3 months old (${AGE_DAYS} days)"
+            IS_NEW="true"
+          else
+            echo "ℹ️  Release is older than 3 months (${AGE_DAYS} days)"
+            IS_NEW="false"
+          fi
+          
+          # Get Dockerfile values
+          echo "📄 Fetching Dockerfile arguments for actions runner version $TAG..."
+          RUNNER_NEW_DOCKERFILE=$(curl -s https://raw.githubusercontent.com/actions/runner/main/images/Dockerfile)
+          
+          HOOKS_VERSION=$(echo "$RUNNER_NEW_DOCKERFILE" | grep 'ARG RUNNER_CONTAINER_HOOKS_VERSION' | cut -d'=' -f2)
+          DOCKER_VERSION=$(echo "$RUNNER_NEW_DOCKERFILE" | grep 'ARG DOCKER_VERSION' | cut -d'=' -f2)
+          BUILDX_VERSION=$(echo "$RUNNER_NEW_DOCKERFILE" | grep 'ARG BUILDX_VERSION' | cut -d'=' -f2)
+          
+          echo "Change the rest of the runner Dockerfile arguments to the following values if needed:"
+          echo "RUNNER_CONTAINER_HOOKS_VERSION: $HOOKS_VERSION"
+          echo "DOCKER_VERSION: $DOCKER_VERSION"
+          echo "BUILDX_VERSION: $BUILDX_VERSION"
+          
+          # Set outputs
+          {
+            echo "is_new=$IS_NEW"
+            echo "runner_version=$TAG"
+            echo "url=$URL"
+            echo "age_days=$AGE_DAYS"
+            echo "published=$PUBLISHED"
+            echo "hooks_version=$HOOKS_VERSION"
+            echo "docker_version=$DOCKER_VERSION"
+            echo "buildx_version=$BUILDX_VERSION"
+          } >> $GITHUB_OUTPUT
+      
+      - uses: actions/checkout@v5
+        if: steps.check-release.outputs.is_new == 'true'
+        with:
+          sparse-checkout: |
+            .github
+            ${{ env.DOCKERFILE_PATH }}
+          sparse-checkout-cone-mode: false
+
+      - name: Update Dockerfile arguments
+        id: update-dockerfile
+        if: steps.check-release.outputs.is_new == 'true'
+        run: |
+          DOCKERFILE="${{ env.DOCKERFILE_PATH }}"
+           
+          echo "📄 Reading current values from $DOCKERFILE..."
+          
+          CURRENT_VERSION=$(grep '^ARG RUNNER_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+          CURRENT_HOOKS=$(grep '^ARG RUNNER_CONTAINER_HOOKS_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+          CURRENT_DOCKER=$(grep '^ARG DOCKER_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+          CURRENT_BUILDX=$(grep '^ARG BUILDX_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+
+          echo "Current RUNNER_VERSION: $CURRENT_VERSION"
+          echo "Current RUNNER_CONTAINER_HOOKS_VERSION: $CURRENT_HOOKS"
+          echo "Current DOCKER_VERSION: $CURRENT_DOCKER"
+          echo "Current BUILDX_VERSION: $CURRENT_BUILDX"
+          
+          echo "🔄 Updating Dockerfile arguments..."
+          
+          # Update the Dockerfile
+          sed -i \
+            -e "s/^ARG RUNNER_VERSION=.*/ARG RUNNER_VERSION=${{ steps.check-release.outputs.runner_version }}/" \
+            -e "s/^ARG RUNNER_CONTAINER_HOOKS_VERSION=.*/ARG RUNNER_CONTAINER_HOOKS_VERSION=${{ steps.check-release.outputs.hooks_version }}/" \
+            -e "s/^ARG DOCKER_VERSION=.*/ARG DOCKER_VERSION=${{ steps.check-release.outputs.docker_version }}/" \
+            -e "s/^ARG BUILDX_VERSION=.*/ARG BUILDX_VERSION=${{ steps.check-release.outputs.buildx_version }}/" \
+            "$DOCKERFILE"
+          
+          echo "✅ Dockerfile updated!"
+      
+          # Set outputs
+          echo "old_runner_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "hooks_old=$CURRENT_HOOKS" >> $GITHUB_OUTPUT
+          echo "docker_old=$CURRENT_DOCKER" >> $GITHUB_OUTPUT
+          echo "buildx_old=$CURRENT_BUILDX" >> $GITHUB_OUTPUT
+          
+          # Check if anything changed
+          if [ "$CURRENT_VERSION" = "${{ steps.check-release.outputs.runner_version }}" ] && \
+             [ "$CURRENT_HOOKS" = "${{ steps.check-release.outputs.hooks_version }}" ] && \
+             [ "$CURRENT_DOCKER" = "${{ steps.check-release.outputs.docker_version }}" ] && \
+             [ "$CURRENT_BUILDX" = "${{ steps.check-release.outputs.buildx_version }}" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Pull Request
+        if: steps.check-release.outputs.is_new == 'true'
+        #if: steps.check-release.outputs.is_new == 'true' && steps.update-dockerfile.outputs.changed == 'true'
+        id: create-pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            Update Dockerfile arguments
+
+            - RUNNER_CONTAINER_HOOKS_VERSION: ${{ steps.update-dockerfile.outputs.hooks_old }} → ${{ steps.update-dockerfile.outputs.hooks_new }}
+            - RUNNER_CONTAINER_HOOKS_VERSION: ${{ steps.update-dockerfile.outputs.hooks_old }} → ${{ steps.update-dockerfile.outputs.hooks_new }}
+            - DOCKER_VERSION: ${{ steps.update-dockerfile.outputs.docker_old }} → ${{ steps.update-dockerfile.outputs.docker_new }}
+            - BUILDX_VERSION: ${{ steps.update-dockerfile.outputs.buildx_old }} → ${{ steps.update-dockerfile.outputs.buildx_new }}
+          branch: update-dockerfile-args-${{ github.run_number }}
+          delete-branch: true
+          title: '🔄 Update Dockerfile Arguments'
+          body: |
+            ## 📝 Dockerfile Argument Updates
+            
+            This PR updates the Dockerfile arguments to the following values:
+            
+            | Argument | Old Value | New Value | Changed |
+            |----------|-----------|-----------|---------|
+            | `RUNNER_CONTAINER_HOOKS_VERSION` | `${{ steps.update-dockerfile.outputs.hooks_old }}` | `${{ steps.update-dockerfile.outputs.hooks_new }}` | ${{ steps.update-dockerfile.outputs.hooks_old != steps.update-dockerfile.outputs.hooks_new && '✅ Yes' || '➖ No' }} |
+            | `DOCKER_VERSION` | `${{ steps.update-dockerfile.outputs.docker_old }}` | `${{ steps.update-dockerfile.outputs.docker_new }}` | ${{ steps.update-dockerfile.outputs.docker_old != steps.update-dockerfile.outputs.docker_new && '✅ Yes' || '➖ No' }} |
+            | `BUILDX_VERSION` | `${{ steps.update-dockerfile.outputs.buildx_old }}` | `${{ steps.update-dockerfile.outputs.buildx_new }}` | ${{ steps.update-dockerfile.outputs.buildx_old != steps.update-dockerfile.outputs.buildx_new && '✅ Yes' || '➖ No' }} |
+            
+            ## 📋 Review Checklist
+            
+            - [ ] Verify the new versions are correct
+            - [ ] Check for breaking changes in release notes
+            - [ ] Test the updated Dockerfile locally if needed
+            
+            ## 🔗 References
+            
+            - [GitHub Actions Runner Releases](https://github.com/actions/runner/releases)
+            - [Dockerfile Source](https://github.com/actions/runner/blob/main/images/Dockerfile)
+            
+            ---
+            
+            **Triggered by:** @${{ github.actor }}
+            **Workflow run:** https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          labels: |
+            dockerfile
+            automated-pr
+          team-reviewers: |
+            ML DevOps Team
+      
+      - name: Send Slack notification
+        if: steps.create-pr.outputs.pull-request-number != ''
+        run: |
+          PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
+          PR_URL="${{ steps.create-pr.outputs.pull-request-url }}"
+          
+          # Determine what changed
+          CHANGES=""
+          
+          if [ "${{ steps.update-dockerfile.outputs.hooks_old }}" != "${{ steps.update-dockerfile.outputs.hooks_new }}" ]; then
+            CHANGES="${CHANGES}• RUNNER_CONTAINER_HOOKS_VERSION: \`${{ steps.update-dockerfile.outputs.hooks_old }}\` → \`${{ steps.update-dockerfile.outputs.hooks_new }}\`\n"
+          fi
+          
+          if [ "${{ steps.update-dockerfile.outputs.docker_old }}" != "${{ steps.update-dockerfile.outputs.docker_new }}" ]; then
+            CHANGES="${CHANGES}• DOCKER_VERSION: \`${{ steps.update-dockerfile.outputs.docker_old }}\` → \`${{ steps.update-dockerfile.outputs.docker_new }}\`\n"
+          fi
+          
+          if [ "${{ steps.update-dockerfile.outputs.buildx_old }}" != "${{ steps.update-dockerfile.outputs.buildx_new }}" ]; then
+            CHANGES="${CHANGES}• BUILDX_VERSION: \`${{ steps.update-dockerfile.outputs.buildx_old }}\` → \`${{ steps.update-dockerfile.outputs.buildx_new }}\`\n"
+          fi
+          
+          cat << EOF > slack_message.json
+          {
+            "text": "🔄 New Pull Request: Update Dockerfile Arguments (#${PR_NUMBER})",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🔄 Pull Request: Update Dockerfile Arguments",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*PR #${PR_NUMBER}* has been created and is ready for review!"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Repository:*\n${{ github.repository }}"
+                  },
+                  {
+                    "type": "mrkdwn",
+                    "text": "*Created by:*\n@${{ github.actor }}"
+                  }
+                ]
+              },
+              {
+                "type": "divider"
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*📝 Changes:*\n${CHANGES}"
+                }
+              },
+              {
+                "type": "divider"
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*👥 Action Required:*\nPlease review and approve this pull request to update the Dockerfile arguments."
+                }
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "👀 Review PR",
+                      "emoji": true
+                    },
+                    "url": "${PR_URL}",
+                    "style": "primary"
+                  },
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "📄 View Dockerfile",
+                      "emoji": true
+                    },
+                    "url": "https://github.com/${{ github.repository }}/blob/update-dockerfile-args-${{ github.run_number }}/${{ env.DOCKERFILE_PATH  }}"
+                  },
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "🔍 View Workflow Run",
+                      "emoji": true
+                    },
+                    "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                ]
+              },
+              {
+                "type": "context",
+                "elements": [
+                  {
+                    "type": "mrkdwn",
+                    "text": "🤖 Automated PR created by GitHub Actions"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          
+          curl -X POST \
+            -H 'Content-Type: application/json' \
+            -d @slack_message.json \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"
+          
+          echo "✅ Slack notification sent!"
+      
+      - name: No changes detected
+        if: steps.update-dockerfile.outputs.changed == 'false'
+        run: |
+          echo "ℹ️  No changes detected. PR not created."
+          
+          cat << EOF > slack_message.json
+          {
+            "text": "ℹ️  Dockerfile Update: No Changes",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "ℹ️  *Dockerfile Update Workflow*\n\nNo changes were detected. All values are already up to date.\n\n*Current values:*\n• RUNNER_CONTAINER_HOOKS_VERSION: \`${{ steps.update-dockerfile.outputs.hooks_new }}\`\n• DOCKER_VERSION: \`${{ steps.update-dockerfile.outputs.docker_new }}\`\n• BUILDX_VERSION: \`${{ steps.update-dockerfile.outputs.buildx_new }}\`"
+                }
+              }
+            ]
+          }
+          EOF
+          
+          curl -X POST \
+            -H 'Content-Type: application/json' \
+            -d @slack_message.json \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"

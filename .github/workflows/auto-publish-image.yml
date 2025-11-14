@@ -1,0 +1,81 @@
+name: Publish Runner Image CD
+
+on:
+  push:
+    branches:
+      # - 'main' # Only runs for pushes to the main branch
+        - '**' 
+    # paths:
+    #   - 'images/Dockerfile'
+
+env:
+  REGISTRY: gcr.io/ltx-research
+  IMAGE_NAME: arc-runner
+  DOCKERFILE_PATH: 'images/Dockerfile'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            .github
+            images
+          sparse-checkout-cone-mode: false
+
+      - name: Get image version
+        id: image-version
+        run: |
+          #!/bin/bash
+          set -euo pipefail
+          
+          DOCKERFILE="${{ env.DOCKERFILE_PATH }}"
+          
+          echo "🔍 Getting actions/runner image version..."
+
+          VERSION=$(grep '^ARG RUNNER_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+
+          if [[ -z "$VERSION" ]]; then
+            echo "❌ Could not find RUNNER_VERSION in $DOCKERFILE"
+            exit 1
+          fi
+          
+          echo "✅ Found RUNNER_VERSION: $VERSION"
+
+          # Set outputs
+          echo "runner_version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@v2
+
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          token_format: 'access_token'
+          workload_identity_provider: 'projects/474377433429/locations/global/workloadIdentityPools/gh-pool/providers/gh-provider'
+          service_account: 'github-actions@ltx-research.iam.gserviceaccount.com'
+    
+      - name: Login to GCR
+        uses: docker/login-action@v2
+        with:
+          registry: gcr.io
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@v3
+        with:
+          context: ./images
+          platforms: |
+            linux/amd64
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.image-version.outputs.runner_version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          push: false #true
+          labels: |
+            org.opencontainers.image.source=${{github.server_url}}/${{github.repository}}
+            org.opencontainers.image.description=https://github.com/actions/runner/releases/tag/v${{ steps.image-version.outputs.runner_version }}
+            org.opencontainers.image.licenses=MIT

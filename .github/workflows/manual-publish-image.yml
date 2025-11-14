@@ -1,4 +1,4 @@
-name: Publish Runner Image
+name: Manually Publish Runner Image
 
 on:
   workflow_dispatch:
