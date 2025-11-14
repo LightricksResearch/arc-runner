@@ -11,9 +11,11 @@ on:
 jobs:
   check-runner-release:
     runs-on: ubuntu-latest
+    env:
+      DOCKERFILE_PATH: 'images/Dockerfile'
     steps:
-      - name: Check for new release
-        id: check
+      - name: Check for new runner release
+        id: check_release
         run: |
           #!/bin/bash
           set -euo pipefail
@@ -50,11 +52,11 @@ jobs:
           
           # Get Dockerfile values
           echo "📄 Fetching Dockerfile arguments for actions runner version $TAG..."
-          DOCKERFILE=$(curl -s https://raw.githubusercontent.com/actions/runner/main/images/Dockerfile)
+          RUNNER_NEW_DOCKERFILE=$(curl -s https://raw.githubusercontent.com/actions/runner/main/images/Dockerfile)
           
-          HOOKS_VERSION=$(echo "$DOCKERFILE" | grep 'ARG RUNNER_CONTAINER_HOOKS_VERSION' | cut -d'=' -f2)
-          DOCKER_VERSION=$(echo "$DOCKERFILE" | grep 'ARG DOCKER_VERSION' | cut -d'=' -f2)
-          BUILDX_VERSION=$(echo "$DOCKERFILE" | grep 'ARG BUILDX_VERSION' | cut -d'=' -f2)
+          HOOKS_VERSION=$(echo "$RUNNER_NEW_DOCKERFILE" | grep 'ARG RUNNER_CONTAINER_HOOKS_VERSION' | cut -d'=' -f2)
+          DOCKER_VERSION=$(echo "$RUNNER_NEW_DOCKERFILE" | grep 'ARG DOCKER_VERSION' | cut -d'=' -f2)
+          BUILDX_VERSION=$(echo "$RUNNER_NEW_DOCKERFILE" | grep 'ARG BUILDX_VERSION' | cut -d'=' -f2)
           
           echo "Change the rest of the runner Dockerfile arguments to the following values if needed:"
           echo "RUNNER_CONTAINER_HOOKS_VERSION: $HOOKS_VERSION"
@@ -73,18 +75,53 @@ jobs:
             echo "buildx_version=$BUILDX_VERSION"
           } >> $GITHUB_OUTPUT
       
+      - uses: actions/checkout@v5
+        if: steps.check_release.outputs.is_new == 'true'
+        with:
+          sparse-checkout: |
+            ${{ env.DOCKERFILE_PATH }}
+          sparse-checkout-cone-mode: false
+
+      - name: Update Dockerfile arguments
+        id: update_dockerfile
+        if: steps.check_release.outputs.is_new == 'true'
+        run: |
+          DOCKERFILE="${{ env.DOCKERFILE_PATH }}"
+           
+          echo "📄 Reading current values from $DOCKERFILE..."
+          
+          CURRENT_VERSION=$(grep '^ARG RUNNER_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+          CURRENT_HOOKS=$(grep '^ARG RUNNER_CONTAINER_HOOKS_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+          CURRENT_DOCKER=$(grep '^ARG DOCKER_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+          CURRENT_BUILDX=$(grep '^ARG BUILDX_VERSION=' "$DOCKERFILE" | cut -d'=' -f2)
+
+          echo "Current RUNNER_VERSION: $CURRENT_VERSION"
+          echo "Current RUNNER_CONTAINER_HOOKS_VERSION: $CURRENT_HOOKS"
+          echo "Current DOCKER_VERSION: $CURRENT_DOCKER"
+          echo "Current BUILDX_VERSION: $CURRENT_BUILDX"
+          
+          echo "🔄 Updating Dockerfile arguments..."
+          
+          # Update the Dockerfile
+          sed -i.bak \
+            -e "s/^ARG RUNNER_VERSION=.*/ARG RUNNER_VERSION=${{ steps.check_release.outputs.runner_version }}/" \
+            -e "s/^ARG RUNNER_CONTAINER_HOOKS_VERSION=.*/ARG RUNNER_CONTAINER_HOOKS_VERSION=${{ steps.check_release.outputs.hooks_version }}/" \
+            -e "s/^ARG DOCKER_VERSION=.*/ARG DOCKER_VERSION=${{ steps.check_release.outputs.docker_version }}\/" \
+            -e "s/^ARG BUILDX_VERSION=.*/ARG BUILDX_VERSION=${{ steps.check_release.outputs.buildx_version }}/" \
+            "$DOCKERFILE"
+      
       # - name: Send Slack notification
-      #   if: steps.check.outputs.is_new == 'true'
+      #   if: steps.check_release.outputs.is_new == 'true'
       #   run: |
       #     cat << EOF > message.json
       #     {
-      #       "text": "🚀 New GitHub Actions Runner Release: ${{ steps.check.outputs.runner_version }} (${{ steps.check.outputs.age_days }} days old)",
+      #       "text": "🚀 New GitHub Actions Runner Release: ${{ steps.check_release.outputs.runner_version }} (${{ steps.check_release.outputs.age_days }} days old)",
       #       "blocks": [
       #         {
       #           "type": "header",
       #           "text": {
       #             "type": "plain_text",
-      #             "text": "🚀 New Actions Runner Release: ${{ steps.check.outputs.runner_version }}"
+      #             "text": "🚀 New Actions Runner Release: ${{ steps.check_release.outputs.runner_version }}"
       #           }
       #         },
       #         {
@@ -99,19 +136,19 @@ jobs:
       #           "fields": [
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*Version:*\n${{ steps.check.outputs.runner_version }}"
+      #               "text": "*Version:*\n${{ steps.check_release.outputs.runner_version }}"
       #             },
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*Published:*\n${{ steps.check.outputs.age_days }} days ago"
+      #               "text": "*Published:*\n${{ steps.check_release.outputs.age_days }} days ago"
       #             },
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*Release Date:*\n${{ steps.check.outputs.published }}"
+      #               "text": "*Release Date:*\n${{ steps.check_release.outputs.published }}"
       #             },
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*Release Notes:*\n<${{ steps.check.outputs.url }}|View on GitHub>"
+      #               "text": "*Release Notes:*\n<${{ steps.check_release.outputs.url }}|View on GitHub>"
       #             }
       #           ]
       #         },
@@ -130,19 +167,19 @@ jobs:
       #           "fields": [
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*RUNNER_VERSION:*\n\`${{ steps.check.outputs.runner_version }}\`"
+      #               "text": "*RUNNER_VERSION:*\n\`${{ steps.check_release.outputs.runner_version }}\`"
       #             },
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*RUNNER_CONTAINER_HOOKS_VERSION:*\n\`${{ steps.check.outputs.hooks_version }}\`"
+      #               "text": "*RUNNER_CONTAINER_HOOKS_VERSION:*\n\`${{ steps.check_release.outputs.hooks_version }}\`"
       #             },
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*DOCKER_VERSION:*\n\`${{ steps.check.outputs.docker_version }}\`"
+      #               "text": "*DOCKER_VERSION:*\n\`${{ steps.check_release.outputs.docker_version }}\`"
       #             },
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*BUILDX_VERSION:*\n\`${{ steps.check.outputs.buildx_version }}\`"
+      #               "text": "*BUILDX_VERSION:*\n\`${{ steps.check_release.outputs.buildx_version }}\`"
       #             }
       #           ]
       #         },
@@ -155,7 +192,7 @@ jobs:
       #                 "type": "plain_text",
       #                 "text": "📋 Release Notes"
       #               },
-      #               "url": "${{ steps.check.outputs.url }}",
+      #               "url": "${{ steps.check_release.outputs.url }}",
       #               "style": "primary"
       #             },
       #             {
@@ -180,7 +217,7 @@ jobs:
       #     echo "✅ Slack notification sent!"
       
       - name: Log old release
-        if: steps.check.outputs.is_new == 'false'
+        if: steps.check_release.outputs.is_new == 'false'
         run: |
-          echo "ℹ️  Latest release ${{ steps.check.outputs.runner_version }} is ${{ steps.check.outputs.age_days }} days old (> 90 days)"
+          echo "ℹ️  Latest release ${{ steps.check_release.outputs.runner_version }} is ${{ steps.check_release.outputs.age_days }} days old (> 90 days)"
           echo "No notification sent."
