@@ -9,7 +9,7 @@ on:
       - '**'
 
 jobs:
-  check-release:
+  check-runner-release:
     runs-on: ubuntu-latest
     steps:
       - name: Check for new release
@@ -27,8 +27,8 @@ jobs:
           URL=$(echo "$LATEST" | jq -r '.html_url')
           PUBLISHED=$(echo "$LATEST" | jq -r '.published_at')
           
-          echo "Latest version: $TAG"
-          echo "Published: $PUBLISHED"
+          echo "RUNNER_VERSION: $TAG"
+          echo "Published on: $PUBLISHED"
           
           # Check if new (last 3 months = 90 days)
           PUBLISHED_TS=$(date -d "$PUBLISHED" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$PUBLISHED" +%s)
@@ -49,13 +49,14 @@ jobs:
           fi
           
           # Get Dockerfile values
-          echo "📄 Fetching Dockerfile versions..."
+          echo "📄 Fetching Dockerfile arguments for actions runner version $TAG..."
           DOCKERFILE=$(curl -s https://raw.githubusercontent.com/actions/runner/main/images/Dockerfile)
           
           HOOKS_VERSION=$(echo "$DOCKERFILE" | grep 'ARG RUNNER_CONTAINER_HOOKS_VERSION' | cut -d'=' -f2)
           DOCKER_VERSION=$(echo "$DOCKERFILE" | grep 'ARG DOCKER_VERSION' | cut -d'=' -f2)
           BUILDX_VERSION=$(echo "$DOCKERFILE" | grep 'ARG BUILDX_VERSION' | cut -d'=' -f2)
           
+          echo "Change the rest of the runner Dockerfile arguments to the following values if needed:"
           echo "RUNNER_CONTAINER_HOOKS_VERSION: $HOOKS_VERSION"
           echo "DOCKER_VERSION: $DOCKER_VERSION"
           echo "BUILDX_VERSION: $BUILDX_VERSION"
@@ -63,7 +64,7 @@ jobs:
           # Set outputs
           {
             echo "is_new=$IS_NEW"
-            echo "version=$TAG"
+            echo "runner_version=$TAG"
             echo "url=$URL"
             echo "age_days=$AGE_DAYS"
             echo "published=$PUBLISHED"
@@ -77,13 +78,13 @@ jobs:
       #   run: |
       #     cat << EOF > message.json
       #     {
-      #       "text": "🚀 New GitHub Actions Runner Release: ${{ steps.check.outputs.version }} (${{ steps.check.outputs.age_days }} days old)",
+      #       "text": "🚀 New GitHub Actions Runner Release: ${{ steps.check.outputs.runner_version }} (${{ steps.check.outputs.age_days }} days old)",
       #       "blocks": [
       #         {
       #           "type": "header",
       #           "text": {
       #             "type": "plain_text",
-      #             "text": "🚀 New Actions Runner Release: ${{ steps.check.outputs.version }}"
+      #             "text": "🚀 New Actions Runner Release: ${{ steps.check.outputs.runner_version }}"
       #           }
       #         },
       #         {
@@ -98,7 +99,7 @@ jobs:
       #           "fields": [
       #             {
       #               "type": "mrkdwn",
-      #               "text": "*Version:*\n${{ steps.check.outputs.version }}"
+      #               "text": "*Version:*\n${{ steps.check.outputs.runner_version }}"
       #             },
       #             {
       #               "type": "mrkdwn",
@@ -121,12 +122,16 @@ jobs:
       #           "type": "section",
       #           "text": {
       #             "type": "mrkdwn",
-      #             "text": "*📋 Action Required:*\nPlease review the release notes and check the following Dockerfile values:"
+      #             "text": "*📋 Action Required:*\nPlease update the following arguments in the runner Dockerfile:"
       #           }
       #         },
       #         {
       #           "type": "section",
       #           "fields": [
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*RUNNER_VERSION:*\n\`${{ steps.check.outputs.runner_version }}\`"
+      #             },
       #             {
       #               "type": "mrkdwn",
       #               "text": "*RUNNER_CONTAINER_HOOKS_VERSION:*\n\`${{ steps.check.outputs.hooks_version }}\`"
@@ -177,5 +182,5 @@ jobs:
       - name: Log old release
         if: steps.check.outputs.is_new == 'false'
         run: |
-          echo "ℹ️  Latest release ${{ steps.check.outputs.version }} is ${{ steps.check.outputs.age_days }} days old (> 90 days)"
+          echo "ℹ️  Latest release ${{ steps.check.outputs.runner_version }} is ${{ steps.check.outputs.age_days }} days old (> 90 days)"
           echo "No notification sent."
