@@ -175,156 +175,156 @@ jobs:
           labels: |
             dockerfile
             automated-pr
-          team-reviewers: |
-            ML DevOps Team
+          # team-reviewers: |
+          #   ML DevOps Team
       
-      - name: Send Slack notification
-        if: steps.create-pr.outputs.pull-request-number != ''
-        run: |
-          PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
-          PR_URL="${{ steps.create-pr.outputs.pull-request-url }}"
+      # - name: Send Slack notification
+      #   if: steps.create-pr.outputs.pull-request-number != ''
+      #   run: |
+      #     PR_NUMBER="${{ steps.create-pr.outputs.pull-request-number }}"
+      #     PR_URL="${{ steps.create-pr.outputs.pull-request-url }}"
           
-          # Determine what changed
-          CHANGES=""
+      #     # Determine what changed
+      #     CHANGES=""
           
-          if [ "${{ steps.update-dockerfile.outputs.hooks_old }}" != "${{ steps.update-dockerfile.outputs.hooks_new }}" ]; then
-            CHANGES="${CHANGES}• RUNNER_CONTAINER_HOOKS_VERSION: \`${{ steps.update-dockerfile.outputs.hooks_old }}\` → \`${{ steps.update-dockerfile.outputs.hooks_new }}\`\n"
-          fi
+      #     if [ "${{ steps.update-dockerfile.outputs.hooks_old }}" != "${{ steps.update-dockerfile.outputs.hooks_new }}" ]; then
+      #       CHANGES="${CHANGES}• RUNNER_CONTAINER_HOOKS_VERSION: \`${{ steps.update-dockerfile.outputs.hooks_old }}\` → \`${{ steps.update-dockerfile.outputs.hooks_new }}\`\n"
+      #     fi
           
-          if [ "${{ steps.update-dockerfile.outputs.docker_old }}" != "${{ steps.update-dockerfile.outputs.docker_new }}" ]; then
-            CHANGES="${CHANGES}• DOCKER_VERSION: \`${{ steps.update-dockerfile.outputs.docker_old }}\` → \`${{ steps.update-dockerfile.outputs.docker_new }}\`\n"
-          fi
+      #     if [ "${{ steps.update-dockerfile.outputs.docker_old }}" != "${{ steps.update-dockerfile.outputs.docker_new }}" ]; then
+      #       CHANGES="${CHANGES}• DOCKER_VERSION: \`${{ steps.update-dockerfile.outputs.docker_old }}\` → \`${{ steps.update-dockerfile.outputs.docker_new }}\`\n"
+      #     fi
           
-          if [ "${{ steps.update-dockerfile.outputs.buildx_old }}" != "${{ steps.update-dockerfile.outputs.buildx_new }}" ]; then
-            CHANGES="${CHANGES}• BUILDX_VERSION: \`${{ steps.update-dockerfile.outputs.buildx_old }}\` → \`${{ steps.update-dockerfile.outputs.buildx_new }}\`\n"
-          fi
+      #     if [ "${{ steps.update-dockerfile.outputs.buildx_old }}" != "${{ steps.update-dockerfile.outputs.buildx_new }}" ]; then
+      #       CHANGES="${CHANGES}• BUILDX_VERSION: \`${{ steps.update-dockerfile.outputs.buildx_old }}\` → \`${{ steps.update-dockerfile.outputs.buildx_new }}\`\n"
+      #     fi
           
-          cat << EOF > slack_message.json
-          {
-            "text": "🔄 New Pull Request: Update Dockerfile Arguments (#${PR_NUMBER})",
-            "blocks": [
-              {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": "🔄 Pull Request: Update Dockerfile Arguments",
-                  "emoji": true
-                }
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*PR #${PR_NUMBER}* has been created and is ready for review!"
-                }
-              },
-              {
-                "type": "section",
-                "fields": [
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Repository:*\n${{ github.repository }}"
-                  },
-                  {
-                    "type": "mrkdwn",
-                    "text": "*Created by:*\n@${{ github.actor }}"
-                  }
-                ]
-              },
-              {
-                "type": "divider"
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*📝 Changes:*\n${CHANGES}"
-                }
-              },
-              {
-                "type": "divider"
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*👥 Action Required:*\nPlease review and approve this pull request to update the Dockerfile arguments."
-                }
-              },
-              {
-                "type": "actions",
-                "elements": [
-                  {
-                    "type": "button",
-                    "text": {
-                      "type": "plain_text",
-                      "text": "👀 Review PR",
-                      "emoji": true
-                    },
-                    "url": "${PR_URL}",
-                    "style": "primary"
-                  },
-                  {
-                    "type": "button",
-                    "text": {
-                      "type": "plain_text",
-                      "text": "📄 View Dockerfile",
-                      "emoji": true
-                    },
-                    "url": "https://github.com/${{ github.repository }}/blob/update-dockerfile-args-${{ github.run_number }}/${{ env.DOCKERFILE_PATH  }}"
-                  },
-                  {
-                    "type": "button",
-                    "text": {
-                      "type": "plain_text",
-                      "text": "🔍 View Workflow Run",
-                      "emoji": true
-                    },
-                    "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                  }
-                ]
-              },
-              {
-                "type": "context",
-                "elements": [
-                  {
-                    "type": "mrkdwn",
-                    "text": "🤖 Automated PR created by GitHub Actions"
-                  }
-                ]
-              }
-            ]
-          }
-          EOF
+      #     cat << EOF > slack_message.json
+      #     {
+      #       "text": "🔄 New Pull Request: Update Dockerfile Arguments (#${PR_NUMBER})",
+      #       "blocks": [
+      #         {
+      #           "type": "header",
+      #           "text": {
+      #             "type": "plain_text",
+      #             "text": "🔄 Pull Request: Update Dockerfile Arguments",
+      #             "emoji": true
+      #           }
+      #         },
+      #         {
+      #           "type": "section",
+      #           "text": {
+      #             "type": "mrkdwn",
+      #             "text": "*PR #${PR_NUMBER}* has been created and is ready for review!"
+      #           }
+      #         },
+      #         {
+      #           "type": "section",
+      #           "fields": [
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*Repository:*\n${{ github.repository }}"
+      #             },
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "*Created by:*\n@${{ github.actor }}"
+      #             }
+      #           ]
+      #         },
+      #         {
+      #           "type": "divider"
+      #         },
+      #         {
+      #           "type": "section",
+      #           "text": {
+      #             "type": "mrkdwn",
+      #             "text": "*📝 Changes:*\n${CHANGES}"
+      #           }
+      #         },
+      #         {
+      #           "type": "divider"
+      #         },
+      #         {
+      #           "type": "section",
+      #           "text": {
+      #             "type": "mrkdwn",
+      #             "text": "*👥 Action Required:*\nPlease review and approve this pull request to update the Dockerfile arguments."
+      #           }
+      #         },
+      #         {
+      #           "type": "actions",
+      #           "elements": [
+      #             {
+      #               "type": "button",
+      #               "text": {
+      #                 "type": "plain_text",
+      #                 "text": "👀 Review PR",
+      #                 "emoji": true
+      #               },
+      #               "url": "${PR_URL}",
+      #               "style": "primary"
+      #             },
+      #             {
+      #               "type": "button",
+      #               "text": {
+      #                 "type": "plain_text",
+      #                 "text": "📄 View Dockerfile",
+      #                 "emoji": true
+      #               },
+      #               "url": "https://github.com/${{ github.repository }}/blob/update-dockerfile-args-${{ github.run_number }}/${{ env.DOCKERFILE_PATH  }}"
+      #             },
+      #             {
+      #               "type": "button",
+      #               "text": {
+      #                 "type": "plain_text",
+      #                 "text": "🔍 View Workflow Run",
+      #                 "emoji": true
+      #               },
+      #               "url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+      #             }
+      #           ]
+      #         },
+      #         {
+      #           "type": "context",
+      #           "elements": [
+      #             {
+      #               "type": "mrkdwn",
+      #               "text": "🤖 Automated PR created by GitHub Actions"
+      #             }
+      #           ]
+      #         }
+      #       ]
+      #     }
+      #     EOF
           
-          curl -X POST \
-            -H 'Content-Type: application/json' \
-            -d @slack_message.json \
-            "${{ secrets.SLACK_WEBHOOK_URL }}"
+      #     curl -X POST \
+      #       -H 'Content-Type: application/json' \
+      #       -d @slack_message.json \
+      #       "${{ secrets.SLACK_WEBHOOK_URL }}"
           
-          echo "✅ Slack notification sent!"
+      #     echo "✅ Slack notification sent!"
       
-      - name: No changes detected
-        if: steps.update-dockerfile.outputs.changed == 'false'
-        run: |
-          echo "ℹ️  No changes detected. PR not created."
+      # - name: No changes detected
+      #   if: steps.update-dockerfile.outputs.changed == 'false'
+      #   run: |
+      #     echo "ℹ️  No changes detected. PR not created."
           
-          cat << EOF > slack_message.json
-          {
-            "text": "ℹ️  Dockerfile Update: No Changes",
-            "blocks": [
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "ℹ️  *Dockerfile Update Workflow*\n\nNo changes were detected. All values are already up to date.\n\n*Current values:*\n• RUNNER_CONTAINER_HOOKS_VERSION: \`${{ steps.update-dockerfile.outputs.hooks_new }}\`\n• DOCKER_VERSION: \`${{ steps.update-dockerfile.outputs.docker_new }}\`\n• BUILDX_VERSION: \`${{ steps.update-dockerfile.outputs.buildx_new }}\`"
-                }
-              }
-            ]
-          }
-          EOF
+      #     cat << EOF > slack_message.json
+      #     {
+      #       "text": "ℹ️  Dockerfile Update: No Changes",
+      #       "blocks": [
+      #         {
+      #           "type": "section",
+      #           "text": {
+      #             "type": "mrkdwn",
+      #             "text": "ℹ️  *Dockerfile Update Workflow*\n\nNo changes were detected. All values are already up to date.\n\n*Current values:*\n• RUNNER_CONTAINER_HOOKS_VERSION: \`${{ steps.update-dockerfile.outputs.hooks_new }}\`\n• DOCKER_VERSION: \`${{ steps.update-dockerfile.outputs.docker_new }}\`\n• BUILDX_VERSION: \`${{ steps.update-dockerfile.outputs.buildx_new }}\`"
+      #           }
+      #         }
+      #       ]
+      #     }
+      #     EOF
           
-          curl -X POST \
-            -H 'Content-Type: application/json' \
-            -d @slack_message.json \
-            "${{ secrets.SLACK_WEBHOOK_URL }}"
+      #     curl -X POST \
+      #       -H 'Content-Type: application/json' \
+      #       -d @slack_message.json \
+      #       "${{ secrets.SLACK_WEBHOOK_URL }}"
