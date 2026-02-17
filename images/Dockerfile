@@ -6,11 +6,15 @@ FROM nvidia/cuda:12.2.0-base-ubuntu22.04 as base
 # Disable buffering for Python output
 ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH=/usr/local/cuda-12.2/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda-12.2/lib64:${LD_LIBRARY_PATH}
 
 # Install system dependencies, including Python 3.10
 RUN apt-get update && apt-get install -y --no-install-recommends software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt-get update && apt-get install --allow-downgrades --allow-change-held-packages --no-install-recommends -y \
+    cuda-nvcc-12-2 \
+    cuda-cudart-dev-12-2 \
     build-essential \
     cmake \
     curl \
