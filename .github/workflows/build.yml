@@ -8,13 +8,11 @@ on:
     - releases/*
     paths-ignore:
     - '**.md'
-    - 'images/**'
   pull_request:
     branches:
     - '**'
     paths-ignore:
     - '**.md'
-    - 'images/**'
 
 jobs:
   build:
