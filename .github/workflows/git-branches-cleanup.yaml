@@ -1,0 +1,28 @@
+name: Branch lifecycle cleanup
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"  # every Monday at 09:00 UTC
+  workflow_dispatch:
+
+jobs:
+  git_branches_cleanup:
+    name: 'Git Branches Cleanup'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Run branch cleanup
+        uses: LightricksResearch/gh-actions/cleanup_git_branches@v2.1
+        with:
+          repo: ${{ github.repository }}
+          stale_days: 30
+          delete_days: 37
+          dry_run: false
+          slack_webhook_devops: ${{ secrets.SLACK_WEBHOOK_URL }}
+          slack_token: ${{ secrets.SLACK_DM_BOT_TOKEN }}
+          gh_token: ${{ secrets.BOT_TOKEN }}
+          github_app_id: ${{ vars.LT_APP_ID }}
+          github_app_private_key: ${{ secrets.LT_PRIVATE_KEY }}
