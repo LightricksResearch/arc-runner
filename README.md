@@ -6,6 +6,8 @@
 
 [![Actions Status](https://github.com/actions/runner/workflows/Runner%20CI/badge.svg)](https://github.com/actions/runner/actions)
 
+> **Lightricks fork.** This repository is a fork of [actions/runner](https://github.com/actions/runner). Upstream sources live under `src/` and are kept close to vanilla so they can be re-synced on runner version bumps. Lightricks-specific changes are limited to [`images/Dockerfile`](images/Dockerfile) (CUDA + Python base image used by ARC on GKE) and the [`publish-image.yml`](.github/workflows/publish-image.yml) workflow that publishes `gcr.io/ltx-research/arc-runner`. See [CLAUDE.md](CLAUDE.md) for the workflow used when working on this fork with Claude Code.
+
 The runner is the application that runs a job from a GitHub Actions workflow. It is used by GitHub Actions in the [hosted virtual environments](https://github.com/actions/virtual-environments), or you can [self-host the runner](https://help.github.com/en/actions/automating-your-workflow-with-github-actions/about-self-hosted-runners) in your own environment.
 
 ## Get Started
