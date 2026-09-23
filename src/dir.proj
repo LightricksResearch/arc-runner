@@ -47,8 +47,11 @@
     </Target>
 
     <Target Name="Test" DependsOnTargets="GenerateConstant">
+        <PropertyGroup>
+            <TestFilterArg Condition="'$(TestFilter)' != ''">--filter %22$(TestFilter)%22</TestFilterArg>
+        </PropertyGroup>
         <Exec Command="dotnet build Test/Test.csproj -c $(BUILDCONFIG) /p:PackageRuntime=$(PackageRuntime)" ConsoleToMSBuild="true" />
-        <Exec Command="dotnet test Test/Test.csproj -c $(BUILDCONFIG) --no-build --logger:trx" ConsoleToMSBuild="true" />
+        <Exec Command="dotnet test Test/Test.csproj -c $(BUILDCONFIG) --no-build --logger:trx $(TestFilterArg)" ConsoleToMSBuild="true" />
     </Target>
 
     <Target Name="Layout" DependsOnTargets="Clean;Build">
