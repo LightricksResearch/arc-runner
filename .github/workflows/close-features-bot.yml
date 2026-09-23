@@ -2,12 +2,19 @@ name: Close Features Bot
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *' # every day at midnight
+    - cron: '15 0 * * *' # every day at 00:15 UTC
+concurrency:
+  group: arc-runner-stale
+  cancel-in-progress: false
+permissions:
+  actions: write
+  issues: write
+  pull-requests: write
 jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v8
+      - uses: actions/stale@v10
         with:
           close-issue-message: "Thank you for your interest in the runner application and taking the time to provide your valuable feedback. We kindly ask you to redirect this feedback to the [GitHub Community Support Forum](https://github.com/orgs/community/discussions/categories/actions-and-packages) which our team actively monitors and would be a better place to start a discussion for new feature requests in GitHub Actions. For more information on this policy please [read our contribution guidelines](https://github.com/actions/runner#contribute). 😃"
           exempt-issue-labels: "keep"
@@ -15,3 +22,4 @@ jobs:
           only-labels: "actions-feature"
           days-before-stale: 0
           days-before-close: 1
+          operations-per-run: 1000
