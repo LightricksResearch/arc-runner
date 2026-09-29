@@ -10,12 +10,12 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     # Make sure ./releaseVersion match ./src/runnerversion
     # Query GitHub release ensure version is not used
     - name: Check version
-      uses: actions/github-script@0.3.0
+      uses: actions/github-script@v8
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
@@ -29,7 +29,7 @@ jobs:
             return
           }
           try {
-            const release = await github.repos.getReleaseByTag({
+            const release = await github.rest.repos.getReleaseByTag({
               owner: '${{ github.event.repository.owner.name }}',
               repo: '${{ github.event.repository.name }}',
               tag: 'v' + runnerVersion
@@ -86,7 +86,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     # Build runner layout
     - name: Build & Layout Release
@@ -118,7 +118,7 @@ jobs:
     # Upload runner package tar.gz/zip as artifact.
     - name: Publish Artifact
       if: github.event_name != 'pull_request'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: runner-packages-${{ matrix.runtime }}
         path: |
@@ -127,43 +127,45 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     # Download runner package tar.gz/zip produced by 'build' job
     - name: Download Artifact (win-x64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: runner-packages-win-x64
         path: ./
     - name: Download Artifact (win-arm64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: runner-packages-win-arm64
         path: ./
     - name: Download Artifact (osx-x64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: runner-packages-osx-x64
         path: ./
     - name: Download Artifact (osx-arm64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: runner-packages-osx-arm64
         path: ./
     - name: Download Artifact (linux-x64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: runner-packages-linux-x64
         path: ./
     - name: Download Artifact (linux-arm)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: runner-packages-linux-arm
         path: ./
     - name: Download Artifact (linux-arm64)
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v8
       with:
         name: runner-packages-linux-arm64
         path: ./
@@ -171,7 +173,7 @@ jobs:
     # Create ReleaseNote file
     - name: Create ReleaseNote
       id: releaseNote
-      uses: actions/github-script@0.3.0
+      uses: actions/github-script@v8
       with:
         github-token: ${{secrets.GITHUB_TOKEN}}
         script: |
@@ -201,88 +203,25 @@ jobs:
         echo "${{needs.build.outputs.linux-arm-sha}}  actions-runner-linux-arm-${{ steps.releaseNote.outputs.version }}.tar.gz" | shasum -a 256 -c
         echo "${{needs.build.outputs.linux-arm64-sha}}  actions-runner-linux-arm64-${{ steps.releaseNote.outputs.version }}.tar.gz" | shasum -a 256 -c
 
-    # Create GitHub release
-    - uses: actions/create-release@master
-      id: createRelease
+    # Create GitHub release and upload runner packages
+    - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
       name: Create ${{ steps.releaseNote.outputs.version }} Runner Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: "v${{ steps.releaseNote.outputs.version }}"
-        release_name: "v${{ steps.releaseNote.outputs.version }}"
+        name: "v${{ steps.releaseNote.outputs.version }}"
         body: |
           ${{ steps.releaseNote.outputs.note }}
-
-    # Upload release assets (full runner packages)
-    - name: Upload Release Asset (win-x64)
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/actions-runner-win-x64-${{ steps.releaseNote.outputs.version }}.zip
-        asset_name: actions-runner-win-x64-${{ steps.releaseNote.outputs.version }}.zip
-        asset_content_type: application/octet-stream
-
-    - name: Upload Release Asset (win-arm64)
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/actions-runner-win-arm64-${{ steps.releaseNote.outputs.version }}.zip
-        asset_name: actions-runner-win-arm64-${{ steps.releaseNote.outputs.version }}.zip
-        asset_content_type: application/octet-stream
-
-    - name: Upload Release Asset (linux-x64)
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/actions-runner-linux-x64-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_name: actions-runner-linux-x64-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_content_type: application/octet-stream
-
-    - name: Upload Release Asset (osx-x64)
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/actions-runner-osx-x64-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_name: actions-runner-osx-x64-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_content_type: application/octet-stream
-
-    - name: Upload Release Asset (osx-arm64)
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/actions-runner-osx-arm64-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_name: actions-runner-osx-arm64-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_content_type: application/octet-stream
-
-    - name: Upload Release Asset (linux-arm)
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/actions-runner-linux-arm-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_name: actions-runner-linux-arm-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_content_type: application/octet-stream
-
-    - name: Upload Release Asset (linux-arm64)
-      uses: actions/upload-release-asset@v1.0.1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.createRelease.outputs.upload_url }}
-        asset_path: ${{ github.workspace }}/actions-runner-linux-arm64-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_name: actions-runner-linux-arm64-${{ steps.releaseNote.outputs.version }}.tar.gz
-        asset_content_type: application/octet-stream
+        files: |
+          actions-runner-win-x64-${{ steps.releaseNote.outputs.version }}.zip
+          actions-runner-win-arm64-${{ steps.releaseNote.outputs.version }}.zip
+          actions-runner-linux-x64-${{ steps.releaseNote.outputs.version }}.tar.gz
+          actions-runner-osx-x64-${{ steps.releaseNote.outputs.version }}.tar.gz
+          actions-runner-osx-arm64-${{ steps.releaseNote.outputs.version }}.tar.gz
+          actions-runner-linux-arm-${{ steps.releaseNote.outputs.version }}.tar.gz
+          actions-runner-linux-arm64-${{ steps.releaseNote.outputs.version }}.tar.gz
+        fail_on_unmatched_files: true
 
   publish-image:
     needs: release
@@ -295,11 +234,11 @@ jobs:
       IMAGE_NAME: ${{ github.repository_owner }}/actions-runner
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Compute image version
         id: image
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
@@ -308,10 +247,10 @@ jobs:
             core.setOutput('version', runnerVersion);
 
       - name: Setup Docker buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v4
 
       - name: Log into registry ${{ env.REGISTRY }}
-        uses: docker/login-action@v2
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -319,7 +258,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build-and-push
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v7
         with:
           context: ./images
           platforms: |
@@ -331,6 +270,7 @@ jobs:
           build-args: |
             RUNNER_VERSION=${{ steps.image.outputs.version }}
           push: true
+          provenance: false
           labels: |
             org.opencontainers.image.source=${{github.server_url}}/${{github.repository}}
             org.opencontainers.image.description=https://github.com/actions/runner/releases/tag/v${{ steps.image.outputs.version }}

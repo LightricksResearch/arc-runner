@@ -3,11 +3,18 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * *' # every day at midnight
+concurrency:
+  group: arc-runner-stale
+  cancel-in-progress: false
+permissions:
+  actions: write
+  issues: write
+  pull-requests: write
 jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v8
+      - uses: actions/stale@v10
         with:
           close-issue-message: "This issue does not seem to be a problem with the runner application, it concerns the GitHub actions platform more generally. Could you please post your feedback on the [GitHub Community Support Forum](https://github.com/orgs/community/discussions/categories/actions) which is actively monitored. Using the forum ensures that we route your problem to the correct team. 😃"
           exempt-issue-labels: "keep"
@@ -15,3 +22,4 @@ jobs:
           only-labels: "actions-bug"
           days-before-stale: 0
           days-before-close: 1
+          operations-per-run: 1000
